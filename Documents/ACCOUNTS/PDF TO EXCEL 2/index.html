@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF to CSV</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>PDF to CSV</h1>
+    <p>Upload a PDF and a template. Get a filled CSV back instantly.</p>
+  </header>
+
+  <main>
+    <!-- Template Section -->
+    <div class="card">
+      <div class="card-label">CSV Template</div>
+
+      <div id="templateStatus" class="template-status hidden">
+        <span class="info" id="templateInfo"></span>
+        <button class="forget-link" id="forgetBtn">Forget template</button>
+      </div>
+
+      <div class="upload-zone" id="templateZone">
+        <input type="file" id="templateInput" accept=".csv,.xlsx,.xls">
+        <span class="icon">+</span>
+        <p>Drop your CSV or Excel template here, or click to browse</p>
+        <div class="file-name hidden" id="templateFileName"></div>
+      </div>
+    </div>
+
+    <!-- PDF Section -->
+    <div class="card">
+      <div class="card-label">PDF Document</div>
+      <div class="upload-zone" id="pdfZone">
+        <input type="file" id="pdfInput" accept=".pdf">
+        <span class="icon">+</span>
+        <p>Drop your PDF here, or click to browse</p>
+        <div class="file-name hidden" id="pdfFileName"></div>
+      </div>
+    </div>
+
+    <!-- Action -->
+    <button class="btn btn-primary" id="extractBtn" disabled>Extract & Fill CSV</button>
+
+    <!-- Status -->
+    <div class="status" id="status"></div>
+
+    <!-- Download -->
+    <button class="btn btn-success" id="downloadBtn">Download CSV</button>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

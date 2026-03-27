@@ -8,13 +8,24 @@ const PRESETS = [
     promptHints: `This is a Xero accounting Sales Invoice import template for an aviation/flight operations company (Flightworx).
 
 MOST IMPORTANT RULE — InventoryItemCode extraction:
-Line items in these invoices almost always start with a numeric code followed by the description. Examples:
+Line items in these invoices almost always start with a numeric code (1-2 digits, sometimes with a letter suffix) followed by a space and then the description text. You MUST split EVERY line item into its code prefix and description. The pattern is: <number>[optional letter] <space> <description text>.
+
+Here are ALL known item codes you may encounter. Extract the code even if the description is long or contains special characters:
   "01 CFP (Computer Flight Plan) + File and Co-ord" → InventoryItemCode = "01", Description = "CFP (Computer Flight Plan) + File and Co-ord"
+  "03 FPL File and Co-Ord" → InventoryItemCode = "03", Description = "FPL File and Co-Ord"
   "05 Flight Following" → InventoryItemCode = "05", Description = "Flight Following"
+  "07 Weather Information" → InventoryItemCode = "07", Description = "Weather Information"
   "09 Ground Handling Setup - Per ARR/DEP" → InventoryItemCode = "09", Description = "Ground Handling Setup - Per ARR/DEP"
+  "10 Airport Slot / Civil PPR - Per ARR/DEP" → InventoryItemCode = "10", Description = "Airport Slot / Civil PPR - Per ARR/DEP"
   "10B Military PPR" → InventoryItemCode = "10B", Description = "Military PPR"
-  "Fuel Load from Crew" → InventoryItemCode = "" (empty, no prefix), Description = "Fuel Load from Crew"
-You MUST split every line item this way. The number/code at the start goes into InventoryItemCode. The remaining text goes into Description. Do NOT put the full text into Description — always strip the leading code. If there is no leading number, leave InventoryItemCode empty.
+  "13 Safe Airspace check - Internal FWX service" → InventoryItemCode = "13", Description = "Safe Airspace check - Internal FWX service"
+  "15 Oceanic Tracks" → InventoryItemCode = "15", Description = "Oceanic Tracks"
+  "17 Weight & Balance" → InventoryItemCode = "17", Description = "Weight & Balance"
+  "19 ROUTE ANALYSIS" → InventoryItemCode = "19", Description = "ROUTE ANALYSIS"
+  "20 Parking Arrangement" → InventoryItemCode = "20", Description = "Parking Arrangement"
+  "Fuel Load from Crew" → InventoryItemCode = "" (empty — no numeric prefix), Description = "Fuel Load from Crew"
+
+Rule: If a line item text starts with one or two digits (optionally followed by a letter like B), followed by a space, ALWAYS extract that as InventoryItemCode. Do NOT skip any — even "01" and "03". Only leave InventoryItemCode empty if there is genuinely no numeric prefix.
 
 Other field rules:
 - Fields prefixed with * are REQUIRED. Try hard to fill: ContactName, InvoiceNumber, InvoiceDate, DueDate, Description, Quantity, UnitAmount, AccountCode, TaxType.

@@ -274,10 +274,12 @@ main {
 }
 
 .btn-primary:disabled {
-  opacity: 0.3;
+  opacity: 0.5;
   cursor: not-allowed;
   box-shadow: none;
   transform: none;
+  background: linear-gradient(135deg, #374151, #4b5563);
+  color: rgba(255, 255, 255, 0.5);
 }
 
 /* Ready state glow pulse */

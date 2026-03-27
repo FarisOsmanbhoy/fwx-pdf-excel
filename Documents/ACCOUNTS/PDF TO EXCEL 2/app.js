@@ -11,7 +11,8 @@ const PRESETS = [
 - InvoiceNumber: The invoice number / reference number on the document.
 - InvoiceDate: The date the invoice was issued. Format as YYYY-MM-DD.
 - DueDate: The payment due date. Format as YYYY-MM-DD. If not on the invoice, leave empty.
-- Description: Line item descriptions. Each line item should be its own row.
+- InventoryItemCode: Many line items have a numeric prefix/code before the description (e.g. "05 Flight Following", "09 Ground Handling Setup", "10B Military PPR"). Extract ONLY the number/code prefix (e.g. "05", "09", "10B") and put it in InventoryItemCode. If no prefix exists, leave empty.
+- Description: The text part of the line item AFTER the item code prefix. For example, from "05 Flight Following" the Description should be "Flight Following" (without the number prefix). Each line item should be its own row.
 - Quantity: Numeric quantity for each line item. Default to 1 if not specified.
 - UnitAmount: The unit price/amount for each line item. Numeric, no currency symbols.
 - Discount: Percentage discount if shown, otherwise leave empty.

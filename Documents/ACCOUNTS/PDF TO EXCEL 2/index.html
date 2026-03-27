@@ -3,53 +3,85 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PDF to CSV</title>
+  <title>FWX — PDF to CSV</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <h1>PDF to CSV</h1>
-    <p>Upload a PDF and a template. Get a filled CSV back instantly.</p>
+  <!-- Ambient background glow -->
+  <div class="bg-glow"></div>
+
+  <header class="fade-in">
+    <h1 class="gradient-text">FWX PDF to CSV</h1>
+    <p>Extract data from PDFs into your accounting templates — instantly.</p>
   </header>
 
   <main>
-    <!-- Template Section -->
-    <div class="card">
-      <div class="card-label">CSV Template</div>
+    <!-- Template Selector -->
+    <div class="card fade-in delay-1">
+      <div class="card-label">Template</div>
 
-      <div id="templateStatus" class="template-status hidden">
-        <span class="info" id="templateInfo"></span>
-        <button class="forget-link" id="forgetBtn">Forget template</button>
+      <div class="template-selector">
+        <select id="templateSelect">
+          <option value="" disabled>Select a template...</option>
+        </select>
+        <button class="icon-btn delete-btn hidden" id="deleteTemplateBtn" title="Delete this custom template">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+        </button>
       </div>
 
-      <div class="upload-zone" id="templateZone">
+      <div id="templateInfo" class="template-info hidden"></div>
+
+      <!-- Custom upload zone (shown when "Add custom" is selected) -->
+      <div id="customUploadZone" class="upload-zone hidden">
         <input type="file" id="templateInput" accept=".csv,.xlsx,.xls">
-        <span class="icon">+</span>
+        <svg class="upload-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         <p>Drop your CSV or Excel template here, or click to browse</p>
         <div class="file-name hidden" id="templateFileName"></div>
       </div>
     </div>
 
-    <!-- PDF Section -->
-    <div class="card">
+    <!-- PDF Upload -->
+    <div class="card fade-in delay-2">
       <div class="card-label">PDF Document</div>
       <div class="upload-zone" id="pdfZone">
         <input type="file" id="pdfInput" accept=".pdf">
-        <span class="icon">+</span>
+        <svg class="upload-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
         <p>Drop your PDF here, or click to browse</p>
         <div class="file-name hidden" id="pdfFileName"></div>
       </div>
     </div>
 
     <!-- Action -->
-    <button class="btn btn-primary" id="extractBtn" disabled>Extract & Fill CSV</button>
+    <button class="btn btn-primary fade-in delay-3" id="extractBtn" disabled>
+      <span class="btn-text">Extract & Fill CSV</span>
+      <span class="btn-loader hidden">
+        <span class="spinner"></span>
+        Processing...
+      </span>
+    </button>
 
     <!-- Status -->
     <div class="status" id="status"></div>
 
     <!-- Download -->
-    <button class="btn btn-success" id="downloadBtn">Download CSV</button>
+    <button class="btn btn-success fade-in" id="downloadBtn">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 6px;"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Download CSV
+    </button>
   </main>
+
+  <!-- Custom template name modal -->
+  <div class="modal-overlay hidden" id="nameModal">
+    <div class="modal">
+      <h3>Name your template</h3>
+      <p>Give this template a name so you can find it later.</p>
+      <input type="text" id="templateNameInput" placeholder="e.g. Fuel Invoice, Crew Expenses..." autocomplete="off">
+      <div class="modal-actions">
+        <button class="btn-modal btn-modal-cancel" id="cancelNameBtn">Cancel</button>
+        <button class="btn-modal btn-modal-save" id="saveNameBtn">Save Template</button>
+      </div>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>

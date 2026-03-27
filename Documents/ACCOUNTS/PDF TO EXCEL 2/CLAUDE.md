@@ -1,56 +1,66 @@
-# PDF to CSV Tool — Project Brief
+# FWX PDF to CSV — Project Brief
 
 ## What this is
-A no-login, open-access web tool deployed on Netlify. Users upload a PDF
-and an Excel/CSV template. Claude intelligently reads the entire PDF,
-maps whatever content is on the page to the template's columns, and
-returns a filled downloadable CSV file.
+An internal tool for the Flightworx (FWX) accounts department. Deployed on
+Netlify at https://fwx-pdf-excel.netlify.app — no login required. Users
+select a template from a dropdown (or add their own), upload a PDF, and
+Claude extracts the data into a filled CSV matching the template columns.
 
-No accounts. No sign-in. Just upload and download.
+Built by Osman (Operations dept) to help accounts automate manual data entry.
+
+---
+
+## Who uses this
+- **FWX Accounts Department** — primary users
+- **Osman (Operations)** — maintains and extends the tool
+- Document types: supplier invoices, fuel receipts, handling invoices, etc.
+- Each document type maps to a specific Excel/CSV template
 
 ---
 
 ## Core User Flow
 
-1. User visits the site (bookmarked, no login required)
-2. User uploads their Excel/CSV template (first time or returning)
-   - Template is saved in browser localStorage with a 7-day TTL
-   - If the user returns within 7 days, the template is pre-loaded automatically
-   - If 7 days pass without use, the template is cleared from storage
-   - User can manually replace/clear the template at any time
+1. User visits the site (bookmarked, no login)
+2. User selects a template from the dropdown
+   - Preset templates are built-in (e.g. Xero Sales Invoice)
+   - Users can add custom templates via file upload — these persist in localStorage
+   - Last-used template is remembered and auto-selected on return
 3. User uploads a PDF
-4. User clicks "Extract & Fill"
-5. Claude reads the entire PDF, intelligently maps all content to the
-   template's column headers
-6. A filled CSV file is returned and offered as a download
-7. The 7-day TTL resets on every use
+4. User clicks "Extract & Fill CSV"
+5. Claude reads the entire PDF with template-specific extraction hints
+6. A filled CSV is returned and offered as a download
 
 ---
 
-## Template Persistence Logic (localStorage)
+## Template System
 
+### Preset Templates (hardcoded in app.js PRESETS array)
+Each preset has:
+- `id` — unique identifier
+- `name` — display name
+- `headers` — CSV header string
+- `promptHints` — template-specific extraction instructions for Claude
+
+Current presets:
+1. **Xero Sales Invoice** — 29 columns, Xero accounting import format
+
+### Custom Templates (user-added, stored in localStorage)
+- Users upload a .csv or .xlsx file → headers are extracted
+- User names the template via a modal
+- Saved to localStorage key `fwx_custom_templates` as JSON array
+- Can be deleted from the dropdown
+- No prompt hints (uses generic extraction)
+
+### Adding a New Preset Template
+To add a new preset, add an entry to the `PRESETS` array in `app.js`:
+```js
+{
+  id: "unique-id",
+  name: "Display Name",
+  headers: "Column1,Column2,Column3,...",
+  promptHints: `Template-specific instructions for Claude...`
+}
 ```
-On template upload:
-  - Save file content to localStorage key: "csv_template"
-  - Save timestamp to localStorage key: "csv_template_saved_at"
-  - Display: "Template saved — will be remembered for 7 days"
-
-On page load:
-  - Check if "csv_template" exists in localStorage
-  - Check if (now - csv_template_saved_at) < 7 days
-  - If valid: pre-load template, show "Template loaded from memory (X days left)"
-  - If expired or missing: show empty template upload slot
-
-On every successful extraction:
-  - Reset "csv_template_saved_at" to now (rolls the 7-day window)
-
-Manual clear:
-  - Small "Forget my template" link clears both localStorage keys
-```
-
-No backend storage. No database. No user accounts. Entirely client-side
-persistence via localStorage. This means it is device-specific — the
-template is remembered on the device/browser the user uploaded from.
 
 ---
 
@@ -61,8 +71,8 @@ template is remembered on the device/browser the user uploaded from.
 | Frontend | Plain HTML, CSS, vanilla JS (no framework) |
 | Backend | Netlify Functions (serverless, Node.js) |
 | AI | Anthropic API — claude-sonnet-4-6 |
-| Deployment | Netlify (via GitHub) |
-| Template memory | Browser localStorage (client-side only) |
+| Deployment | Netlify (GitHub: FarisOsmanbhoy/fwx-pdf-excel) |
+| Template storage | Browser localStorage (presets in code, custom in localStorage) |
 
 ---
 
@@ -73,8 +83,10 @@ project-root/
 ├── CLAUDE.md                          ← this file
 ├── netlify.toml                       ← Netlify config
 ├── index.html                         ← main UI
-├── style.css                          ← dark mode styling
-├── app.js                             ← frontend logic + localStorage
+├── style.css                          ← dark mode styling with animations
+├── app.js                             ← frontend logic, presets, template management
+├── Excel template/
+│   └── SalesInvoiceTemplate.csv       ← reference copy of Xero template
 └── netlify/
     └── functions/
         └── process-pdf.js             ← serverless function, calls Anthropic API
@@ -84,114 +96,81 @@ project-root/
 
 ## Frontend Design
 
-**Vibe: Modern dark mode**
+**Vibe: Modern dark glassmorphism**
 
-- Background: near-black (#0f0f0f or #111111)
-- Surface cards: dark grey (#1a1a1a or #1e1e1e)
-- Accent: a single vibrant colour (e.g. electric blue #3b82f6 or purple #8b5cf6)
-- Text: off-white (#f1f1f1), muted text (#888)
-- Font: Inter or Geist (load from Google Fonts or Fontsource CDN)
-- Upload zones: dashed border, drag-and-drop supported, subtle hover glow
-- Button: solid accent colour, rounded, slight shadow
-- Status messages: inline, colour-coded (blue = info, green = success, red = error)
-- No unnecessary animations — clean, fast, purposeful
+- Background: near-black (#0a0a0a) with ambient blue glow
+- Cards: glass effect with backdrop-blur, subtle borders
+- Accent: blue-to-purple gradient (#3b82f6 → #8b5cf6)
+- Gradient animated header text
+- Entrance animations: fade-in + slide-up, staggered
+- Upload zones: dashed border, hover glow, green state when file loaded
+- Extract button: gradient with pulse-glow animation when ready
+- Download button: green gradient, slide-in animation
+- Modal for naming custom templates
 - Mobile responsive
-
-**UI Sections (single page, no scroll ideally):**
-1. Header — site name + one-line description
-2. Template zone — upload or shows "Template loaded (X days left)" + forget link
-3. PDF zone — upload area
-4. Action button — "Extract & Fill CSV"
-5. Status/progress indicator
-6. Download button (appears after processing)
 
 ---
 
 ## Netlify Function — process-pdf.js
 
 Responsibilities:
-- Receive PDF (as base64) and CSV template (as text) from frontend
-- Call Anthropic API with both
-- Prompt instructs Claude to: read the entire PDF intelligently,
-  identify all data on the page, and map it to the CSV template columns
-- Return the filled CSV as a plain text string
-- Handle errors gracefully (PDF unreadable, API failure, etc.)
+- Receive PDF (base64), CSV template headers, and optional promptHints
+- Build extraction prompt (generic rules + template-specific hints if provided)
+- Call Anthropic API with PDF document block + prompt
+- Return filled CSV as plain text string
+- Handle errors gracefully
 
 Environment variable required:
-- `ANTHROPIC_API_KEY` — set in Netlify dashboard under Site Settings → Environment Variables
+- `ANTHROPIC_API_KEY` — set in Netlify dashboard
 
 The API key is NEVER exposed to the frontend or browser.
 
 ---
 
-## Anthropic API Prompt Strategy
+## Prompt Strategy
 
-The function sends Claude:
-1. The PDF as a base64-encoded document block
-2. The CSV template headers as text
-3. This instruction:
+Base prompt: generic CSV extraction rules (headers, escaping, empty fields, all rows).
 
-```
-You are a data extraction assistant. Read the entire PDF document
-provided. Intelligently identify all structured and unstructured
-content on every page. Map the extracted content to the column
-headers in the CSV template below.
+When `promptHints` is provided (from preset templates), it's appended as
+"Additional extraction instructions" — giving Claude template-specific
+guidance on field meanings, date formats, required fields, etc.
 
-CSV Headers:
-[INSERT HEADERS HERE]
-
-Return ONLY a valid CSV string. First row must be the headers exactly
-as given. Following rows are the extracted data. No explanation, no
-markdown, no code fences. Just the raw CSV.
-```
-
----
-
-## Skills to Reference (do not copy — reference by path)
-
-Claude Code should read these skill files only when performing the
-relevant task. Do not load all at once.
-
-| Task | Skill path |
-|---|---|
-| Building/iterating this skill | /mnt/skills/examples/skill-creator/SKILL.md |
-| PDF reading & extraction logic | /mnt/skills/public/pdf-reading/SKILL.md |
-| PDF manipulation details | /mnt/skills/public/pdf/SKILL.md |
-| Understanding spreadsheet/CSV structure | /mnt/skills/public/xlsx/SKILL.md |
-| Handling uploaded files | /mnt/skills/public/file-reading/SKILL.md |
-| Frontend UI implementation | /mnt/skills/public/frontend-design/SKILL.md |
+This means:
+- Preset templates get high-quality, tuned extraction
+- Custom templates get decent generic extraction
+- New presets can be added with custom hints as accounts tests more document types
 
 ---
 
 ## Constraints & Rules
 
-- No login, no accounts, no authentication ever
-- No backend database — localStorage only for template persistence
-- Template persistence is device/browser specific (acceptable)
-- API key must never appear in frontend code
-- Output must always be a downloadable .csv file
-- Site must work on mobile
-- Keep dependencies minimal — no React, no Vue, no build tools
-- Netlify free tier must be sufficient (125k function calls/month)
-- PDF size limit: warn user if PDF exceeds 5MB (Anthropic API limit)
+- No login, no accounts, no authentication
+- No backend database — localStorage only
+- API key never in frontend code
+- Output is always a downloadable .csv
+- Mobile responsive
+- No frameworks — vanilla HTML/CSS/JS
+- Netlify free tier (125k function calls/month)
+- PDF size limit: 5MB warning
+
+---
+
+## Iterative Development
+
+This tool is being developed iteratively:
+1. Start with 1 preset template (Xero Sales Invoice) ← DONE
+2. Test with real FWX PDFs → identify field issues
+3. Tune promptHints based on real extraction failures
+4. Add more preset templates as accounts requests them
+5. Future: more automation tools beyond PDF-to-CSV
 
 ---
 
 ## Out of Scope (for now)
 
-- User accounts or cloud sync of templates
-- Processing multiple PDFs at once
-- Editing the CSV in-browser before downloading
-- Support for password-protected PDFs
-- Any analytics or tracking
-
----
-
-## How to Start (Claude Code instructions)
-
-1. Read /mnt/skills/examples/skill-creator/SKILL.md first
-2. Scaffold the project structure listed above
-3. Build the Netlify function first (process-pdf.js) and test it
-4. Then build the frontend (index.html, style.css, app.js)
-5. Wire them together
-6. Use Netlify MCP to deploy when ready
+- User accounts or cloud sync
+- Multiple PDFs at once
+- In-browser CSV editing
+- Password-protected PDFs
+- Analytics or tracking
+- Auto-detection of template type from PDF content

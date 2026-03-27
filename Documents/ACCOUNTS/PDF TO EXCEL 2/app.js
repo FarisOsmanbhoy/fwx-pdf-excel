@@ -1,69 +1,176 @@
+// ─── Preset Templates ────────────────────────────────────────
+const PRESETS = [
+  {
+    id: "xero-sales-invoice",
+    name: "Xero Sales Invoice",
+    headers:
+      "*ContactName,EmailAddress,POAddressLine1,POAddressLine2,POAddressLine3,POAddressLine4,POCity,PORegion,POPostalCode,POCountry,*InvoiceNumber,Reference,*InvoiceDate,*DueDate,Total,InventoryItemCode,*Description,*Quantity,*UnitAmount,Discount,*AccountCode,*TaxType,TaxAmount,TrackingName1,TrackingOption1,TrackingName2,TrackingOption2,Currency,BrandingTheme",
+    promptHints: `This is a Xero accounting Sales Invoice import template. Pay special attention to these rules:
+- Fields prefixed with * are REQUIRED (ContactName, InvoiceNumber, InvoiceDate, DueDate, Description, Quantity, UnitAmount, AccountCode, TaxType). Try hard to fill these.
+- ContactName: The supplier or client name on the invoice.
+- InvoiceNumber: The invoice number / reference number on the document.
+- InvoiceDate: The date the invoice was issued. Format as YYYY-MM-DD.
+- DueDate: The payment due date. Format as YYYY-MM-DD. If not on the invoice, leave empty.
+- Description: Line item descriptions. Each line item should be its own row.
+- Quantity: Numeric quantity for each line item. Default to 1 if not specified.
+- UnitAmount: The unit price/amount for each line item. Numeric, no currency symbols.
+- Discount: Percentage discount if shown, otherwise leave empty.
+- Total: The total amount for the line. Numeric, no currency symbols.
+- TaxAmount: Tax amount if shown separately.
+- AccountCode: Leave empty unless an account code is visible on the invoice.
+- TaxType: Leave empty unless tax type is explicitly stated.
+- POAddressLine1-4, POCity, PORegion, POPostalCode, POCountry: Extract from the billing/postal address if present.
+- EmailAddress: Extract if visible on the invoice.
+- Currency: The 3-letter currency code (e.g. USD, GBP, EUR) if visible.
+- Reference: Any additional reference number distinct from the invoice number.
+- If the invoice has multiple line items, output one CSV row per line item. Repeat the header-level fields (ContactName, InvoiceNumber, dates, address) on each row.`,
+  },
+];
+
 // ─── Constants ───────────────────────────────────────────────
-const TEMPLATE_KEY = "csv_template";
-const TEMPLATE_TS_KEY = "csv_template_saved_at";
-const TTL_DAYS = 7;
+const CUSTOM_TEMPLATES_KEY = "fwx_custom_templates";
+const LAST_TEMPLATE_KEY = "fwx_last_template";
 const MAX_PDF_MB = 5;
 
 // ─── DOM refs ────────────────────────────────────────────────
-const templateZone = document.getElementById("templateZone");
+const templateSelect = document.getElementById("templateSelect");
+const deleteTemplateBtn = document.getElementById("deleteTemplateBtn");
+const templateInfoEl = document.getElementById("templateInfo");
+const customUploadZone = document.getElementById("customUploadZone");
 const templateInput = document.getElementById("templateInput");
 const templateFileName = document.getElementById("templateFileName");
-const templateStatus = document.getElementById("templateStatus");
-const templateInfo = document.getElementById("templateInfo");
-const forgetBtn = document.getElementById("forgetBtn");
 
 const pdfZone = document.getElementById("pdfZone");
 const pdfInput = document.getElementById("pdfInput");
 const pdfFileName = document.getElementById("pdfFileName");
 
 const extractBtn = document.getElementById("extractBtn");
+const btnText = extractBtn.querySelector(".btn-text");
+const btnLoader = extractBtn.querySelector(".btn-loader");
 const statusEl = document.getElementById("status");
 const downloadBtn = document.getElementById("downloadBtn");
 
+const nameModal = document.getElementById("nameModal");
+const templateNameInput = document.getElementById("templateNameInput");
+const saveNameBtn = document.getElementById("saveNameBtn");
+const cancelNameBtn = document.getElementById("cancelNameBtn");
+
 // ─── State ───────────────────────────────────────────────────
-let templateHeaders = null; // CSV header string
+let templateHeaders = null;
+let promptHints = null;
 let pdfBase64 = null;
 let pdfMediaType = "application/pdf";
 let csvResult = null;
+let pendingHeaders = null; // headers waiting for a name
 
-// ─── Template persistence ────────────────────────────────────
-function saveTemplate(headers) {
-  localStorage.setItem(TEMPLATE_KEY, headers);
-  localStorage.setItem(TEMPLATE_TS_KEY, Date.now().toString());
-}
-
-function loadTemplate() {
-  const saved = localStorage.getItem(TEMPLATE_KEY);
-  const ts = localStorage.getItem(TEMPLATE_TS_KEY);
-  if (!saved || !ts) return null;
-
-  const age = Date.now() - parseInt(ts, 10);
-  const maxAge = TTL_DAYS * 24 * 60 * 60 * 1000;
-  if (age > maxAge) {
-    forgetTemplate();
-    return null;
+// ─── Custom template persistence ─────────────────────────────
+function getCustomTemplates() {
+  try {
+    return JSON.parse(localStorage.getItem(CUSTOM_TEMPLATES_KEY)) || [];
+  } catch {
+    return [];
   }
-  return { headers: saved, daysLeft: Math.ceil((maxAge - age) / (24 * 60 * 60 * 1000)) };
 }
 
-function refreshTemplateTTL() {
-  localStorage.setItem(TEMPLATE_TS_KEY, Date.now().toString());
+function saveCustomTemplates(templates) {
+  localStorage.setItem(CUSTOM_TEMPLATES_KEY, JSON.stringify(templates));
 }
 
-function forgetTemplate() {
-  localStorage.removeItem(TEMPLATE_KEY);
-  localStorage.removeItem(TEMPLATE_TS_KEY);
+function addCustomTemplate(name, headers) {
+  const templates = getCustomTemplates();
+  const id = "custom-" + Date.now();
+  templates.push({ id, name, headers, promptHints: null });
+  saveCustomTemplates(templates);
+  return id;
+}
+
+function deleteCustomTemplate(id) {
+  const templates = getCustomTemplates().filter((t) => t.id !== id);
+  saveCustomTemplates(templates);
+}
+
+function saveLastTemplate(id) {
+  localStorage.setItem(LAST_TEMPLATE_KEY, id);
+}
+
+function getLastTemplate() {
+  return localStorage.getItem(LAST_TEMPLATE_KEY);
+}
+
+// ─── Populate dropdown ───────────────────────────────────────
+function populateDropdown(selectId) {
+  const customs = getCustomTemplates();
+
+  // Clear existing options (keep the disabled placeholder)
+  while (templateSelect.options.length > 1) {
+    templateSelect.remove(1);
+  }
+
+  // Add preset group
+  if (PRESETS.length > 0) {
+    const presetGroup = document.createElement("optgroup");
+    presetGroup.label = "Preset Templates";
+    PRESETS.forEach((p) => {
+      const opt = document.createElement("option");
+      opt.value = p.id;
+      opt.textContent = p.name;
+      presetGroup.appendChild(opt);
+    });
+    templateSelect.appendChild(presetGroup);
+  }
+
+  // Add custom group
+  if (customs.length > 0) {
+    const customGroup = document.createElement("optgroup");
+    customGroup.label = "Your Templates";
+    customs.forEach((c) => {
+      const opt = document.createElement("option");
+      opt.value = c.id;
+      opt.textContent = c.name;
+      customGroup.appendChild(opt);
+    });
+    templateSelect.appendChild(customGroup);
+  }
+
+  // Add "Add Custom" option
+  const sep = document.createElement("optgroup");
+  sep.label = "─────────";
+  const addOpt = document.createElement("option");
+  addOpt.value = "__add_custom__";
+  addOpt.textContent = "+ Add custom template...";
+  templateSelect.appendChild(sep);
+  templateSelect.appendChild(addOpt);
+
+  // Restore last selection
+  if (selectId) {
+    templateSelect.value = selectId;
+  } else {
+    const last = getLastTemplate();
+    if (last && findTemplate(last)) {
+      templateSelect.value = last;
+    }
+  }
+
+  // Trigger change to load the template
+  if (templateSelect.value && templateSelect.value !== "") {
+    handleTemplateChange();
+  }
+}
+
+// ─── Find template by ID ────────────────────────────────────
+function findTemplate(id) {
+  const preset = PRESETS.find((p) => p.id === id);
+  if (preset) return preset;
+  return getCustomTemplates().find((c) => c.id === id) || null;
 }
 
 // ─── Parse template file ─────────────────────────────────────
 function parseCSVHeaders(text) {
-  // Take the first non-empty line as headers
   const lines = text.split(/\r?\n/).filter((l) => l.trim());
   return lines.length > 0 ? lines[0] : null;
 }
 
 async function parseExcelHeaders(file) {
-  // Minimal xlsx parse: read first row using SheetJS loaded from CDN
   if (!window.XLSX) {
     await loadSheetJS();
   }
@@ -73,7 +180,10 @@ async function parseExcelHeaders(file) {
       try {
         const wb = XLSX.read(new Uint8Array(e.target.result), { type: "array" });
         const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_csv(ws).split(/\r?\n/).filter((l) => l.trim());
+        const rows = XLSX.utils
+          .sheet_to_csv(ws)
+          .split(/\r?\n/)
+          .filter((l) => l.trim());
         resolve(rows.length > 0 ? rows[0] : null);
       } catch (err) {
         reject(err);
@@ -115,23 +225,93 @@ function setStatus(msg, type) {
 }
 
 function updateExtractButton() {
-  extractBtn.disabled = !(templateHeaders && pdfBase64);
+  const ready = !!(templateHeaders && pdfBase64);
+  extractBtn.disabled = !ready;
+  extractBtn.classList.toggle("ready", ready);
 }
 
-function showTemplateLoaded(daysLeft) {
-  templateStatus.classList.remove("hidden");
-  templateInfo.textContent = "Template loaded from memory (" + daysLeft + " day" + (daysLeft !== 1 ? "s" : "") + " left)";
-  templateZone.querySelector("p").textContent = "Drop a new template to replace, or click to browse";
+function showTemplateInfo(msg) {
+  templateInfoEl.textContent = msg;
+  templateInfoEl.classList.remove("hidden");
 }
 
-function showTemplateSaved() {
-  templateStatus.classList.remove("hidden");
-  templateInfo.textContent = "Template saved — will be remembered for 7 days";
+function hideTemplateInfo() {
+  templateInfoEl.classList.add("hidden");
 }
+
+// ─── Template dropdown handler ───────────────────────────────
+function handleTemplateChange() {
+  const val = templateSelect.value;
+
+  // Reset
+  hideTemplateInfo();
+  customUploadZone.classList.add("hidden");
+  deleteTemplateBtn.classList.add("hidden");
+
+  if (val === "__add_custom__") {
+    // Show upload zone
+    templateHeaders = null;
+    promptHints = null;
+    customUploadZone.classList.remove("hidden");
+    templateFileName.classList.add("hidden");
+    templateInput.value = "";
+    updateExtractButton();
+    return;
+  }
+
+  const tmpl = findTemplate(val);
+  if (!tmpl) {
+    templateHeaders = null;
+    promptHints = null;
+    updateExtractButton();
+    return;
+  }
+
+  templateHeaders = tmpl.headers;
+  promptHints = tmpl.promptHints || null;
+  saveLastTemplate(val);
+
+  // Count columns
+  const colCount = tmpl.headers.split(",").length;
+  showTemplateInfo(tmpl.name + " — " + colCount + " columns");
+
+  // Show delete button only for custom templates
+  if (val.startsWith("custom-")) {
+    deleteTemplateBtn.classList.remove("hidden");
+  }
+
+  updateExtractButton();
+}
+
+templateSelect.addEventListener("change", handleTemplateChange);
+
+// ─── Delete custom template ──────────────────────────────────
+deleteTemplateBtn.addEventListener("click", () => {
+  const val = templateSelect.value;
+  if (!val.startsWith("custom-")) return;
+
+  const tmpl = findTemplate(val);
+  if (!tmpl) return;
+
+  if (!confirm('Delete template "' + tmpl.name + '"?')) return;
+
+  deleteCustomTemplate(val);
+  templateHeaders = null;
+  promptHints = null;
+  hideTemplateInfo();
+  deleteTemplateBtn.classList.add("hidden");
+  localStorage.removeItem(LAST_TEMPLATE_KEY);
+  populateDropdown();
+  templateSelect.value = "";
+  updateExtractButton();
+});
 
 // ─── Drag and drop setup ─────────────────────────────────────
 function setupDrop(zone, input) {
-  zone.addEventListener("click", () => input.click());
+  zone.addEventListener("click", (e) => {
+    if (e.target === input) return;
+    input.click();
+  });
 
   zone.addEventListener("dragover", (e) => {
     e.preventDefault();
@@ -152,10 +332,10 @@ function setupDrop(zone, input) {
   });
 }
 
-setupDrop(templateZone, templateInput);
+setupDrop(customUploadZone, templateInput);
 setupDrop(pdfZone, pdfInput);
 
-// ─── Template input handler ──────────────────────────────────
+// ─── Custom template upload handler ──────────────────────────
 templateInput.addEventListener("change", async () => {
   const file = templateInput.files[0];
   if (!file) return;
@@ -170,7 +350,7 @@ templateInput.addEventListener("change", async () => {
     } else if (ext === "xlsx" || ext === "xls") {
       headers = await parseExcelHeaders(file);
     } else {
-      setStatus("Unsupported template format. Use .csv or .xlsx", "error");
+      setStatus("Unsupported format. Use .csv or .xlsx", "error");
       return;
     }
 
@@ -179,16 +359,54 @@ templateInput.addEventListener("change", async () => {
       return;
     }
 
-    templateHeaders = headers;
+    // Show file name
     templateFileName.textContent = file.name;
     templateFileName.classList.remove("hidden");
-    saveTemplate(headers);
-    showTemplateSaved();
+    customUploadZone.classList.add("has-file");
+
+    // Store headers and open naming modal
+    pendingHeaders = headers;
+    templateNameInput.value = file.name.replace(/\.[^.]+$/, "");
+    nameModal.classList.remove("hidden");
+    templateNameInput.focus();
     setStatus("", "");
-    updateExtractButton();
   } catch (err) {
     setStatus("Error reading template: " + err.message, "error");
   }
+});
+
+// ─── Name modal handlers ─────────────────────────────────────
+saveNameBtn.addEventListener("click", () => {
+  const name = templateNameInput.value.trim();
+  if (!name || !pendingHeaders) return;
+
+  const id = addCustomTemplate(name, pendingHeaders);
+  pendingHeaders = null;
+  nameModal.classList.add("hidden");
+  customUploadZone.classList.add("hidden");
+  customUploadZone.classList.remove("has-file");
+
+  populateDropdown(id);
+  setStatus("Template saved!", "success");
+  setTimeout(() => setStatus("", ""), 2000);
+});
+
+cancelNameBtn.addEventListener("click", () => {
+  pendingHeaders = null;
+  nameModal.classList.add("hidden");
+  templateInput.value = "";
+  templateFileName.classList.add("hidden");
+  customUploadZone.classList.remove("has-file");
+});
+
+// Close modal on overlay click
+nameModal.addEventListener("click", (e) => {
+  if (e.target === nameModal) cancelNameBtn.click();
+});
+
+// Enter key in modal saves
+templateNameInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") saveNameBtn.click();
 });
 
 // ─── PDF input handler ──────────────────────────────────────
@@ -207,6 +425,7 @@ pdfInput.addEventListener("change", async () => {
     pdfMediaType = file.type || "application/pdf";
     pdfFileName.textContent = file.name;
     pdfFileName.classList.remove("hidden");
+    pdfZone.classList.add("has-file");
     setStatus("", "");
     updateExtractButton();
   } catch (err) {
@@ -214,37 +433,32 @@ pdfInput.addEventListener("change", async () => {
   }
 });
 
-// ─── Forget template ─────────────────────────────────────────
-forgetBtn.addEventListener("click", () => {
-  forgetTemplate();
-  templateHeaders = null;
-  templateFileName.classList.add("hidden");
-  templateStatus.classList.add("hidden");
-  templateInput.value = "";
-  templateZone.querySelector("p").textContent = "Drop your CSV or Excel template here, or click to browse";
-  updateExtractButton();
-  setStatus("Template forgotten.", "info");
-  setTimeout(() => setStatus("", ""), 2000);
-});
-
 // ─── Extract action ──────────────────────────────────────────
 extractBtn.addEventListener("click", async () => {
   if (!templateHeaders || !pdfBase64) return;
 
   extractBtn.disabled = true;
+  extractBtn.classList.remove("ready");
+  btnText.classList.add("hidden");
+  btnLoader.classList.remove("hidden");
   downloadBtn.style.display = "none";
   csvResult = null;
   setStatus("Sending to Claude for extraction...", "info");
 
   try {
+    const payload = {
+      pdfBase64,
+      pdfMediaType,
+      templateHeaders,
+    };
+    if (promptHints) {
+      payload.promptHints = promptHints;
+    }
+
     const res = await fetch("/.netlify/functions/process-pdf", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        pdfBase64,
-        pdfMediaType,
-        templateHeaders,
-      }),
+      body: JSON.stringify(payload),
     });
 
     const data = await res.json();
@@ -254,12 +468,13 @@ extractBtn.addEventListener("click", async () => {
     }
 
     csvResult = data.csv;
-    refreshTemplateTTL();
     setStatus("Extraction complete!", "success");
     downloadBtn.style.display = "block";
   } catch (err) {
     setStatus("Error: " + err.message, "error");
   } finally {
+    btnText.classList.remove("hidden");
+    btnLoader.classList.add("hidden");
     updateExtractButton();
   }
 });
@@ -277,12 +492,6 @@ downloadBtn.addEventListener("click", () => {
   URL.revokeObjectURL(url);
 });
 
-// ─── Init: check for saved template ─────────────────────────
-(function init() {
-  const saved = loadTemplate();
-  if (saved) {
-    templateHeaders = saved.headers;
-    showTemplateLoaded(saved.daysLeft);
-  }
-  updateExtractButton();
-})();
+// ─── Init ────────────────────────────────────────────────────
+populateDropdown();
+updateExtractButton();

@@ -25,12 +25,18 @@ exports.handler = async (event) => {
       };
     }
 
-    let prompt = `You are a data extraction assistant. Read the entire PDF document provided. Intelligently identify all structured and unstructured content on every page. Map the extracted content to the column headers in the CSV template below.
+    let prompt = `You are a data extraction assistant for an aviation company. Read the entire PDF document provided. Intelligently identify all structured and unstructured content on every page. Map the extracted content to the column headers in the CSV template below.
 
 CSV Headers:
 ${templateHeaders}
+`;
 
-Rules:
+    if (promptHints) {
+      prompt += `\nCRITICAL template-specific instructions (MUST follow these):\n${promptHints}\n`;
+    }
+
+    prompt += `
+Output rules:
 - Return ONLY a valid CSV string.
 - First row must be the headers exactly as given above.
 - Following rows are the extracted data.
@@ -38,10 +44,6 @@ Rules:
 - If data for a column is not found in the PDF, leave that cell empty.
 - Extract ALL rows of data found, not just the first one.
 - No explanation, no markdown, no code fences. Just the raw CSV.`;
-
-    if (promptHints) {
-      prompt += `\n\nAdditional extraction instructions:\n${promptHints}`;
-    }
 
     const message = await client.messages.create({
       model: "claude-sonnet-4-6",

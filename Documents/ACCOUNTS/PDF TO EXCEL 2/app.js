@@ -5,24 +5,33 @@ const PRESETS = [
     name: "Xero Sales Invoice",
     headers:
       "*ContactName,EmailAddress,POAddressLine1,POAddressLine2,POAddressLine3,POAddressLine4,POCity,PORegion,POPostalCode,POCountry,*InvoiceNumber,Reference,*InvoiceDate,*DueDate,Total,InventoryItemCode,*Description,*Quantity,*UnitAmount,Discount,*AccountCode,*TaxType,TaxAmount,TrackingName1,TrackingOption1,TrackingName2,TrackingOption2,Currency,BrandingTheme",
-    promptHints: `This is a Xero accounting Sales Invoice import template. Pay special attention to these rules:
-- Fields prefixed with * are REQUIRED (ContactName, InvoiceNumber, InvoiceDate, DueDate, Description, Quantity, UnitAmount, AccountCode, TaxType). Try hard to fill these.
+    promptHints: `This is a Xero accounting Sales Invoice import template for an aviation/flight operations company (Flightworx).
+
+MOST IMPORTANT RULE — InventoryItemCode extraction:
+Line items in these invoices almost always start with a numeric code followed by the description. Examples:
+  "01 CFP (Computer Flight Plan) + File and Co-ord" → InventoryItemCode = "01", Description = "CFP (Computer Flight Plan) + File and Co-ord"
+  "05 Flight Following" → InventoryItemCode = "05", Description = "Flight Following"
+  "09 Ground Handling Setup - Per ARR/DEP" → InventoryItemCode = "09", Description = "Ground Handling Setup - Per ARR/DEP"
+  "10B Military PPR" → InventoryItemCode = "10B", Description = "Military PPR"
+  "Fuel Load from Crew" → InventoryItemCode = "" (empty, no prefix), Description = "Fuel Load from Crew"
+You MUST split every line item this way. The number/code at the start goes into InventoryItemCode. The remaining text goes into Description. Do NOT put the full text into Description — always strip the leading code. If there is no leading number, leave InventoryItemCode empty.
+
+Other field rules:
+- Fields prefixed with * are REQUIRED. Try hard to fill: ContactName, InvoiceNumber, InvoiceDate, DueDate, Description, Quantity, UnitAmount, AccountCode, TaxType.
 - ContactName: The supplier or client name on the invoice.
 - InvoiceNumber: The invoice number / reference number on the document.
-- InvoiceDate: The date the invoice was issued. Format as YYYY-MM-DD.
-- DueDate: The payment due date. Format as YYYY-MM-DD. If not on the invoice, leave empty.
-- InventoryItemCode: Many line items have a numeric prefix/code before the description (e.g. "05 Flight Following", "09 Ground Handling Setup", "10B Military PPR"). Extract ONLY the number/code prefix (e.g. "05", "09", "10B") and put it in InventoryItemCode. If no prefix exists, leave empty.
-- Description: The text part of the line item AFTER the item code prefix. For example, from "05 Flight Following" the Description should be "Flight Following" (without the number prefix). Each line item should be its own row.
+- InvoiceDate: Date the invoice was issued. Format as YYYY-MM-DD.
+- DueDate: Payment due date. Format as YYYY-MM-DD. If not on the invoice, leave empty.
 - Quantity: Numeric quantity for each line item. Default to 1 if not specified.
-- UnitAmount: The unit price/amount for each line item. Numeric, no currency symbols.
+- UnitAmount: The unit price/amount for each line item. Numeric only, no currency symbols.
 - Discount: Percentage discount if shown, otherwise leave empty.
-- Total: The total amount for the line. Numeric, no currency symbols.
+- Total: Total amount for the line. Numeric only, no currency symbols.
 - TaxAmount: Tax amount if shown separately.
 - AccountCode: Leave empty unless an account code is visible on the invoice.
 - TaxType: Leave empty unless tax type is explicitly stated.
-- POAddressLine1-4, POCity, PORegion, POPostalCode, POCountry: Extract from the billing/postal address if present.
+- POAddressLine1-4, POCity, PORegion, POPostalCode, POCountry: Extract from billing/postal address if present.
 - EmailAddress: Extract if visible on the invoice.
-- Currency: The 3-letter currency code (e.g. USD, GBP, EUR) if visible.
+- Currency: 3-letter currency code (e.g. USD, GBP, EUR) if visible.
 - Reference: Any additional reference number distinct from the invoice number.
 - If the invoice has multiple line items, output one CSV row per line item. Repeat the header-level fields (ContactName, InvoiceNumber, dates, address) on each row.`,
   },
@@ -50,6 +59,7 @@ const btnText = extractBtn.querySelector(".btn-text");
 const btnLoader = extractBtn.querySelector(".btn-loader");
 const statusEl = document.getElementById("status");
 const downloadBtn = document.getElementById("downloadBtn");
+const resetBtn = document.getElementById("resetBtn");
 
 const nameModal = document.getElementById("nameModal");
 const templateNameInput = document.getElementById("templateNameInput");
@@ -471,6 +481,7 @@ extractBtn.addEventListener("click", async () => {
     csvResult = data.csv;
     setStatus("Extraction complete!", "success");
     downloadBtn.style.display = "block";
+    resetBtn.classList.remove("hidden");
   } catch (err) {
     setStatus("Error: " + err.message, "error");
   } finally {
@@ -491,6 +502,30 @@ downloadBtn.addEventListener("click", () => {
   a.download = "extracted_data.csv";
   a.click();
   URL.revokeObjectURL(url);
+});
+
+// ─── Reset / Extract Another ─────────────────────────────────
+resetBtn.addEventListener("click", () => {
+  // Clear PDF state
+  pdfBase64 = null;
+  pdfMediaType = "application/pdf";
+  csvResult = null;
+  pdfInput.value = "";
+  pdfFileName.classList.add("hidden");
+  pdfZone.classList.remove("has-file");
+
+  // Hide result buttons
+  downloadBtn.style.display = "none";
+  resetBtn.classList.add("hidden");
+
+  // Clear status
+  setStatus("", "");
+
+  // Re-enable extract button state
+  updateExtractButton();
+
+  // Scroll to top
+  window.scrollTo({ top: 0, behavior: "smooth" });
 });
 
 // ─── Init ────────────────────────────────────────────────────

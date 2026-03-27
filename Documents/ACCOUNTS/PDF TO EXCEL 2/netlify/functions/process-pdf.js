@@ -45,9 +45,14 @@ Output rules:
 - Extract ALL rows of data found, not just the first one.
 - No explanation, no markdown, no code fences. Just the raw CSV.`;
 
+    const systemPrompt = promptHints
+      ? `You are a data extraction assistant for Flightworx (FWX), an aviation company. You extract data from PDF invoices into CSV templates. Follow ALL template-specific instructions exactly.`
+      : `You are a data extraction assistant. You extract data from PDF documents into CSV templates.`;
+
     const message = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 16000,
+      system: systemPrompt,
       messages: [
         {
           role: "user",

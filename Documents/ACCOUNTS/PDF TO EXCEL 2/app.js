@@ -5,46 +5,39 @@ const PRESETS = [
     name: "Xero Sales Invoice",
     headers:
       "*ContactName,EmailAddress,POAddressLine1,POAddressLine2,POAddressLine3,POAddressLine4,POCity,PORegion,POPostalCode,POCountry,*InvoiceNumber,Reference,*InvoiceDate,*DueDate,Total,InventoryItemCode,*Description,*Quantity,*UnitAmount,Discount,*AccountCode,*TaxType,TaxAmount,TrackingName1,TrackingOption1,TrackingName2,TrackingOption2,Currency,BrandingTheme",
-    promptHints: `This is a Xero accounting Sales Invoice import template for an aviation/flight operations company (Flightworx).
+    promptHints: `Xero Sales Invoice template for Flightworx (FWX) aviation company.
 
-MOST IMPORTANT RULE — InventoryItemCode extraction:
-Line items in these invoices almost always start with a numeric code (1-2 digits, sometimes with a letter suffix) followed by a space and then the description text. You MUST split EVERY line item into its code prefix and description. The pattern is: <number>[optional letter] <space> <description text>.
+## InventoryItemCode — MANDATORY EXTRACTION
+Each line item in the PDF starts with a numeric code prefix (e.g. "01", "03", "05", "09", "10B", "13", "15", "17", "19", "20") followed by a space and the description.
 
-Here are ALL known item codes you may encounter. Extract the code even if the description is long or contains special characters:
-  "01 CFP (Computer Flight Plan) + File and Co-ord" → InventoryItemCode = "01", Description = "CFP (Computer Flight Plan) + File and Co-ord"
-  "03 FPL File and Co-Ord" → InventoryItemCode = "03", Description = "FPL File and Co-Ord"
-  "05 Flight Following" → InventoryItemCode = "05", Description = "Flight Following"
-  "07 Weather Information" → InventoryItemCode = "07", Description = "Weather Information"
-  "09 Ground Handling Setup - Per ARR/DEP" → InventoryItemCode = "09", Description = "Ground Handling Setup - Per ARR/DEP"
-  "10 Airport Slot / Civil PPR - Per ARR/DEP" → InventoryItemCode = "10", Description = "Airport Slot / Civil PPR - Per ARR/DEP"
-  "10B Military PPR" → InventoryItemCode = "10B", Description = "Military PPR"
-  "13 Safe Airspace check - Internal FWX service" → InventoryItemCode = "13", Description = "Safe Airspace check - Internal FWX service"
-  "15 Oceanic Tracks" → InventoryItemCode = "15", Description = "Oceanic Tracks"
-  "17 Weight & Balance" → InventoryItemCode = "17", Description = "Weight & Balance"
-  "19 ROUTE ANALYSIS" → InventoryItemCode = "19", Description = "ROUTE ANALYSIS"
-  "20 Parking Arrangement" → InventoryItemCode = "20", Description = "Parking Arrangement"
-  "Fuel Load from Crew" → InventoryItemCode = "" (empty — no numeric prefix), Description = "Fuel Load from Crew"
+You MUST split this into two columns:
+- InventoryItemCode: the numeric prefix ONLY (e.g. "01", "03", "10B")
+- Description: the remaining text ONLY, WITHOUT the prefix
 
-Rule: If a line item text starts with one or two digits (optionally followed by a letter like B), followed by a space, ALWAYS extract that as InventoryItemCode. Do NOT skip any — even "01" and "03". Only leave InventoryItemCode empty if there is genuinely no numeric prefix.
+Example: "01 CFP (Computer Flight Plan) + File and Co-ord"
+→ InventoryItemCode = 01
+→ Description = CFP (Computer Flight Plan) + File and Co-ord
 
-Other field rules:
-- Fields prefixed with * are REQUIRED. Try hard to fill: ContactName, InvoiceNumber, InvoiceDate, DueDate, Description, Quantity, UnitAmount, AccountCode, TaxType.
-- ContactName: The supplier or client name on the invoice.
-- InvoiceNumber: The invoice number / reference number on the document.
-- InvoiceDate: Date the invoice was issued. Format as YYYY-MM-DD.
-- DueDate: Payment due date. Format as YYYY-MM-DD. If not on the invoice, leave empty.
-- Quantity: Numeric quantity for each line item. Default to 1 if not specified.
-- UnitAmount: The unit price/amount for each line item. Numeric only, no currency symbols.
-- Discount: Percentage discount if shown, otherwise leave empty.
-- Total: Total amount for the line. Numeric only, no currency symbols.
-- TaxAmount: Tax amount if shown separately.
-- AccountCode: Leave empty unless an account code is visible on the invoice.
-- TaxType: Leave empty unless tax type is explicitly stated.
-- POAddressLine1-4, POCity, PORegion, POPostalCode, POCountry: Extract from billing/postal address if present.
-- EmailAddress: Extract if visible on the invoice.
-- Currency: 3-letter currency code (e.g. USD, GBP, EUR) if visible.
-- Reference: Any additional reference number distinct from the invoice number.
-- If the invoice has multiple line items, output one CSV row per line item. Repeat the header-level fields (ContactName, InvoiceNumber, dates, address) on each row.`,
+Example: "05 Flight Following"
+→ InventoryItemCode = 05
+→ Description = Flight Following
+
+Example: "Fuel Load from Crew"
+→ InventoryItemCode = (empty, no prefix)
+→ Description = Fuel Load from Crew
+
+If Description text begins with a number followed by a space, that number IS the InventoryItemCode. Never leave InventoryItemCode empty when a numeric prefix exists.
+
+## Other fields
+- ContactName: supplier/client name on the invoice
+- InvoiceNumber: the invoice/reference number
+- InvoiceDate, DueDate: format as YYYY-MM-DD
+- Quantity: default to 1 if not shown
+- UnitAmount, Total, TaxAmount: numeric only, no currency symbols
+- Currency: 3-letter code (USD, GBP, EUR) if visible
+- AccountCode, TaxType: leave empty unless explicitly on the invoice
+- Address fields: extract from billing/postal address if present
+- Multiple line items = one CSV row per item, repeating header fields on each row`,
   },
 ];
 

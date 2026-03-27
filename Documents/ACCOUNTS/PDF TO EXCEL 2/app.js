@@ -14,19 +14,14 @@ You MUST split this into two columns:
 - InventoryItemCode: the numeric prefix ONLY (e.g. "01", "03", "10B")
 - Description: the remaining text ONLY, WITHOUT the prefix
 
-Example: "01 CFP (Computer Flight Plan) + File and Co-ord"
-→ InventoryItemCode = 01
-→ Description = CFP (Computer Flight Plan) + File and Co-ord
+Examples — apply this splitting to EVERY line item:
+"01 CFP (Computer Flight Plan) + File and Co-ord" → InventoryItemCode=01, Description=CFP (Computer Flight Plan) + File and Co-ord
+"03 FPL File and Co-Ord" → InventoryItemCode=03, Description=FPL File and Co-Ord
+"05 Flight Following" → InventoryItemCode=05, Description=Flight Following
+"10B Military PPR" → InventoryItemCode=10B, Description=Military PPR
+"Fuel Load from Crew" → InventoryItemCode=(empty), Description=Fuel Load from Crew
 
-Example: "05 Flight Following"
-→ InventoryItemCode = 05
-→ Description = Flight Following
-
-Example: "Fuel Load from Crew"
-→ InventoryItemCode = (empty, no prefix)
-→ Description = Fuel Load from Crew
-
-If Description text begins with a number followed by a space, that number IS the InventoryItemCode. Never leave InventoryItemCode empty when a numeric prefix exists.
+The first one or two characters before the first space are ALWAYS the item code when they are digits (with optional letter suffix). This applies even when the description contains parentheses, slashes, ampersands, or other special characters. "01" is an item code — do not ignore it just because the description after it is complex.
 
 ## Other fields
 - ContactName: supplier/client name on the invoice
